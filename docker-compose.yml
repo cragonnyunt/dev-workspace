@@ -1,0 +1,63 @@
+name: "dev-workspace"
+
+services:
+  nodejs:
+    build:
+      context: .
+      dockerfile: node/Dockerfile
+      args:
+        NODE_VERSION: ${NODE_VERSION}
+        YARN_VERSION: ${YARN_VERSION}
+        NPM_VERSION: ${NPM_VERSION}
+        BUN_VERSION: ${BUN_VERSION}
+    container_name: nodejs
+    entrypoint: ["/bin/sh"]
+    init: true
+    tty: true
+    ports:
+      - "3000:3000"
+      - "4200:4200"
+      - "3001:3001"
+      - "5174:5174"
+    volumes:
+      - ${NODE_WORKSPACE}:/var/www
+      - ~/.ssh:/home/node/.ssh:ro
+      - cache_nodejs_npm:/home/node/.npm
+      - cache_nodejs_yarn:/home/node/.yarn
+      - cache_nodejs_bun:/home/node/.bun/install/cache
+      - vscode_nodejs_data:/home/node/.vscode-server
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 4g
+    networks:
+      - workspace-network
+
+  mongo:
+    image: mongo:${MONGO_VERSION}
+    container_name: mongo
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD}
+    ports:
+      - "${MONGO_DB_PORT}:27017"
+    volumes:
+      - ${MONGO_DB_STORE}:/data/db
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 2g
+    networks:
+      - workspace-network
+
+networks:
+  workspace-network:
+
+volumes:
+  mongo_data:
+  cache_nodejs_npm:
+  cache_nodejs_yarn:
+  cache_nodejs_bun:
+  vscode_nodejs_data:
