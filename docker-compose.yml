@@ -19,6 +19,7 @@ services:
       - "4200:4200"
       - "3001:3001"
       - "5174:5174"
+      - "${CHROME_DEBUG_PORT:-9222}:9222"
     volumes:
       - ${NODE_WORKSPACE}:/var/www
       - ~/.ssh:/home/node/.ssh:ro
@@ -55,6 +56,10 @@ services:
   seaweedfs:
     image: chrislusf/seaweedfs:${SEAWEEDFS_VERSION}
     container_name: seaweedfs
+    environment:
+      AWS_ACCESS_KEY_ID: ${SEAWEEDFS_S3_ACCESS_KEY}
+      AWS_SECRET_ACCESS_KEY: ${SEAWEEDFS_S3_SECRET_KEY}
+      AWS_REGION: ${SEAWEEDFS_S3_REGION}
     command: >
       server
       -dir=/data
@@ -77,6 +82,21 @@ services:
           memory: 2g
     networks:
       - workspace-network
+
+  chrome:
+    image: chromedp/headless-shell:${CHROME_VERSION:-latest}
+    container_name: chrome
+    shm_size: "512mb"
+    # Share the Node container network so localhost:5174 and localhost:3001
+    # resolve exactly as they do in a developer's browser.
+    network_mode: "service:nodejs"
+    depends_on:
+      - nodejs
+    command:
+      - --disable-dev-shm-usage
+      - --remote-allow-origins=*
+      - --hide-scrollbars
+      - --window-size=1440,900
 
 networks:
   workspace-network:
