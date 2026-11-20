@@ -6,6 +6,8 @@ Docker based local development environment for the StudyHub projects.
 
 - `nodejs` - Node 24 + npm/yarn/bun, mounts this machine's `Development` folder at `/var/www`.
 - `mongo` - MongoDB on `localhost:27017` (user `root`, password `root`).
+- `redis` - Redis 7.4 for optional application caching (AOF enabled, data in the
+  `redis_data` volume, on `localhost:6379`).
 - `seaweedfs` - SeaweedFS 4.52 (master + volume + filer + S3 gateway) for file storage;
   data is kept in the `seaweedfs_data` volume. S3 API on `localhost:8333`, filer UI on
   `localhost:8888`.
@@ -15,14 +17,15 @@ Docker based local development environment for the StudyHub projects.
 ## Quick start
 
 ```bash
-docker compose up -d <services> # services like nodejs, mongo, seaweedfs, chrome
+docker compose up -d <services> # services like nodejs, mongo, redis, seaweedfs, chrome
 docker compose down
 ```
 
 | App        | URL                     |
 | ---------- | ----------------------- |
 | Frontend   | http://localhost:5174   |
-| API        | http://localhost:3001   |
+| API        | http://localhost:3000   |
+| Redis      | redis://localhost:6379  |
 | S3 API     | http://localhost:8333   |
 | Filer UI   | http://localhost:8888   |
 | Chrome CDP | http://localhost:9222   |
@@ -50,7 +53,7 @@ http://localhost:9222
 ```
 
 It shares the `nodejs` container's network namespace, so a browser session connected
-through CDP can open `http://localhost:5174` and call `http://localhost:3001` exactly
+through CDP can open `http://localhost:5174` and call `http://localhost:3000` exactly
 like a normal local browser.
 
 Check it:
@@ -65,3 +68,29 @@ Playwright can connect to it:
 const { chromium } = require('playwright');
 const browser = await chromium.connectOverCDP('http://localhost:9222');
 ```
+
+## Redis cache (optional)
+
+Redis is available for cache-aside use, but it is **not a hard dependency**. The
+backend must keep working when Redis is stopped, unreachable, slow, or empty. On any
+cache error it reads MongoDB and continues normally.
+
+From another container on `workspace-network`:
+
+```env
+REDIS_URL=redis://redis:6379
+```
+
+From the host use `redis://localhost:6379`. Leave `REDIS_URL` empty to keep caching
+disabled entirely.
+
+Check it:
+
+```bash
+docker exec redis redis-cli ping
+# PONG
+```
+
+The Redis service uses append-only persistence and a `redis_data` volume. The planned
+cache candidates, TTLs, invalidation rules and fallback behavior are documented in
+`../studyhub-redis-cache-plan.md`.

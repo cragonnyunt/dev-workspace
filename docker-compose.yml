@@ -17,7 +17,6 @@ services:
     ports:
       - "3000:3000"
       - "4200:4200"
-      - "3001:3001"
       - "5174:5174"
       - "${CHROME_DEBUG_PORT:-9222}:9222"
     volumes:
@@ -83,11 +82,33 @@ services:
     networks:
       - workspace-network
 
+
+  redis:
+    image: redis:${REDIS_VERSION:-7.4-alpine}
+    container_name: redis
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - ${REDIS_DATA_STORE:-redis_data}:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512m
+    networks:
+      - workspace-network
+
   chrome:
     image: chromedp/headless-shell:${CHROME_VERSION:-latest}
     container_name: chrome
     shm_size: "512mb"
-    # Share the Node container network so localhost:5174 and localhost:3001
+    # Share the Node container network so localhost:5174 and localhost:3000
     # resolve exactly as they do in a developer's browser.
     network_mode: "service:nodejs"
     depends_on:
@@ -104,6 +125,7 @@ networks:
 volumes:
   mongo_data:
   seaweedfs_data:
+  redis_data:
   cache_nodejs_npm:
   cache_nodejs_yarn:
   cache_nodejs_bun:
