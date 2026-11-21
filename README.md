@@ -75,22 +75,30 @@ Redis is available for cache-aside use, but it is **not a hard dependency**. The
 backend must keep working when Redis is stopped, unreachable, slow, or empty. On any
 cache error it reads MongoDB and continues normally.
 
-From another container on `workspace-network`:
+The backend currently caches the P0 authorization lookup: user type → permissions
+(`authz:type:<name>`, default TTL 600s). User-type create, update, rename and delete
+invalidate the key immediately. Redis is enabled in the local backend `.env`:
 
 ```env
 REDIS_URL=redis://redis:6379
+CACHE_ENABLED=true
+CACHE_PREFIX=studyhub:development
 ```
 
-From the host use `redis://localhost:6379`. Leave `REDIS_URL` empty to keep caching
-disabled entirely.
+From another container on `workspace-network` use `redis://redis:6379`; from the host
+use `redis://localhost:6379`. Leave `REDIS_URL` empty to keep caching disabled
+entirely. Per-command and connect timeouts are 75ms and 1000ms by default
+(`CACHE_TIMEOUT_MS`, `CACHE_CONNECT_TIMEOUT_MS`).
 
 Check it:
 
 ```bash
 docker exec redis redis-cli ping
 # PONG
+
+docker exec redis redis-cli --scan --pattern 'studyhub:development:authz:*'
 ```
 
-The Redis service uses append-only persistence and a `redis_data` volume. The planned
+The Redis service uses append-only persistence and a `redis_data` volume. The remaining
 cache candidates, TTLs, invalidation rules and fallback behavior are documented in
 `../studyhub-redis-cache-plan.md`.
